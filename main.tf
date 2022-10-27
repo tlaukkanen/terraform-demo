@@ -32,6 +32,67 @@ resource "azurerm_app_service_plan" "main" {
   }
 }
 
+resource "azurerm_monitor_autoscale_setting" "main" {
+  name = "asp-terraform-autoscale"
+  resource_group_name = azurerm_resource_group.rg.name
+  location = azurerm_resource_group.rg.location
+  target_resource_id = azurerm_app_service_plan.main.id
+  profile {
+    name = "default"
+    capacity {
+      default = 1
+      minimum = 1
+      maximum = 3
+    }
+    // Increase rule
+    rule {
+      metric_trigger {
+        metric_name = "CpuPercentage"
+        metric_resource_id = azurerm_app_service_plan.main.id
+        time_grain = "PT1M" // 1 minute period
+        statistic = "Average"
+        time_window = "PT5M"
+        time_aggregation = "Average"
+        operator = "GreaterThan"
+        threshold = 80
+      }
+      scale_action {
+        direction = "Increase"
+        type = "ChangeCount"
+        cooldown = "PT10M"
+        value = "1"
+      }
+    }
+    // Decrease rule
+    rule {
+      metric_trigger {
+        metric_name = "CpuPercentage"
+        metric_resource_id = azurerm_app_service_plan.main.id
+        time_grain = "PT1M" // 1 minute period
+        statistic = "Average"
+        time_window = "PT5M"
+        time_aggregation = "Average"
+        operator = "LessThan"
+        threshold = 20
+      }
+      scale_action {
+        direction = "Decrease"
+        type = "ChangeCount"
+        cooldown = "PT10M"
+        value = "1"
+      }
+    }
+  }
+  notification {
+    email {
+      // send_to_subscription_administrator = true
+      // send_to_subscription_co_administrator = true
+      // Send email to custom address, for example Teams channel
+      custom_emails = [ "first.last@domain.com" ]
+    }
+  }
+}
+
 resource "azurerm_app_service" "main" {
   name = "app-terraform"
   location = "westeurope"
